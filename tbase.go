@@ -1,9 +1,7 @@
 package tbase
 
 import (
-	"encoding/binary"
 	"fmt"
-	"math"
 	"strings"
 	"time"
 
@@ -15,7 +13,8 @@ type Storage interface {
 }
 
 type Collection interface {
-	Encode([]byte, []byte) error
+	Encode(key, val []byte) error
+	Range(start, end time.Time) *TimeSeries
 }
 
 type BoltStorage struct {
@@ -34,7 +33,7 @@ type TimeSeries struct {
 	Length      int
 }
 
-func NewTimeSeries(name string, cols ...string) *TimeSeries {
+func NewTimeSeries(name string, cols []string) *TimeSeries {
 	return &TimeSeries{
 		Name:        name,
 		ColumnNames: cols,
@@ -70,6 +69,14 @@ func (bc *BoltCollection) Encode(key, value []byte) error {
 	return bc.b.Put(key, value)
 }
 
+func (bc *BoltCollection) Range(start, end time.Time) *TimeSeries {
+	cur := bc.b.Cursor()
+	tbytes, _ := start.MarshalBinary()
+	k, v := cur.Seek(tbytes)
+	fmt.Println(string(k), string(v))
+	return &TimeSeries{}
+}
+
 func (t *TimeSeries) String() string {
 	return fmt.Sprintf("%s(%s)", t.Name, strings.Join(t.ColumnNames, ", "))
 }
@@ -83,32 +90,11 @@ func (t *TimeSeries) AddObservation(ts time.Time, data []float64) {
 	t.Length++
 }
 
-func FloatSliceBytes(values []float64) []byte {
-	bytes := []byte{}
-	for _, f := range values {
-		bytes = append(bytes, Float64bytes(f)...)
-	}
-	return bytes
-}
-
-func Float64frombytes(bytes []byte) float64 {
-	bits := binary.LittleEndian.Uint64(bytes)
-	float := math.Float64frombits(bits)
-	return float
-}
-
-func Float64bytes(float float64) []byte {
-	bits := math.Float64bits(float)
-	bytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(bytes, bits)
-	return bytes
-}
-
 func (t *TBase) Persist(ts *TimeSeries) {
 	coll := t.storage.Collection(ts.Name)
 	for ix, r := range ts.Values {
 		timeBytes, _ := ts.Times[ix].MarshalBinary()
-		fbytes := FloatSliceBytes(r)
+		fbytes := floatSliceToBytes(r)
 		coll.Encode(timeBytes, fbytes)
 	}
 }

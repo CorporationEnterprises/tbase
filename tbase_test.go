@@ -2,7 +2,6 @@ package tbase
 
 import (
 	"encoding/csv"
-	"fmt"
 	"os"
 	"strconv"
 	"testing"
@@ -20,7 +19,7 @@ func TestData(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	ts := NewTimeSeries("EBAY", rows[0][1:]...)
+	ts := NewTimeSeries("EBAY", rows[0][1:])
 	for _, r := range rows[1:] {
 		date, _ := time.Parse(dfmt, r[0])
 		vals := []float64{}
@@ -30,8 +29,8 @@ func TestData(t *testing.T) {
 		}
 		ts.AddObservation(date, vals)
 	}
-	fmt.Println(ts)
-	db := TBase{NewBoltStorage("doot")}
+	db := TBase{NewBoltStorage(".testdata")}
 	db.Persist(ts)
+	// db.storage.Collection("EBAY").Range(time.Now(), time.Now())
 	// fmt.Println(db.EncodeRow("EBAY", time.Now(), []float64{1, 2, 3}))
 }
